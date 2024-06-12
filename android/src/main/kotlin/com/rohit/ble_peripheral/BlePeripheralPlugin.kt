@@ -281,41 +281,53 @@ class BlePeripheralPlugin : FlutterPlugin, BlePeripheralChannel, ActivityAware {
 
     private val gattServerCallback: BluetoothGattServerCallback =
         object : BluetoothGattServerCallback() {
-            override fun onConnectionStateChange(
-                device: BluetoothDevice,
-                status: Int,
-                newState: Int,
-            ) {
-                super.onConnectionStateChange(device, status, newState)
-                when (newState) {
-                    BluetoothProfile.STATE_CONNECTED -> {
-                        if (device.bondState == BluetoothDevice.BOND_NONE) {
-                            // Wait for bonding
-                            listOfDevicesWaitingForBond.add(device.address)
-                            device.createBond()
-                        } else if (device.bondState == BluetoothDevice.BOND_BONDED) {
-                            handler?.post {
-                                gattServer?.connect(device, true)
-                            }
-                            synchronized(bluetoothDevicesMap) {
-                                bluetoothDevicesMap.put(
-                                    device.address,
-                                    device
-                                )
-                            }
-                        }
-                        onConnectionUpdate(device, status, newState)
-                    }
+            // override fun onConnectionStateChange(
+            //     device: BluetoothDevice,
+            //     status: Int,
+            //     newState: Int,
+            // ) {
+            //     super.onConnectionStateChange(device, status, newState)
+            //     when (newState) {
+            //         BluetoothProfile.STATE_CONNECTED -> {
+            //             if (device.bondState == BluetoothDevice.BOND_NONE) {
+            //                 // Wait for bonding
+            //                 listOfDevicesWaitingForBond.add(device.address)
+            //                 device.createBond()
+            //             } else if (device.bondState == BluetoothDevice.BOND_BONDED) {
+            //                 handler?.post {
+            //                     gattServer?.connect(device, true)
+            //                 }
+            //                 synchronized(bluetoothDevicesMap) {
+            //                     bluetoothDevicesMap.put(
+            //                         device.address,
+            //                         device
+            //                     )
+            //                 }
+            //             }
+            //             onConnectionUpdate(device, status, newState)
+            //         }
 
-                    BluetoothProfile.STATE_DISCONNECTED -> {
-                        val deviceAddress = device.address
-                        synchronized(bluetoothDevicesMap) { bluetoothDevicesMap.remove(deviceAddress) }
-                        onConnectionUpdate(device, status, newState)
-                    }
+            //         BluetoothProfile.STATE_DISCONNECTED -> {
+            //             val deviceAddress = device.address
+            //             synchronized(bluetoothDevicesMap) { bluetoothDevicesMap.remove(deviceAddress) }
+            //             onConnectionUpdate(device, status, newState)
+            //         }
 
-                    else -> {}
-                }
+            //         else -> {}
+            //     }
+            // }
+
+            override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
+            super.onConnectionStateChange(device, status, newState)
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                handler?.post { gattServer?.connect(device, true) }
+                synchronized(bluetoothDevicesMap) { bluetoothDevicesMap[device.address] = device }
+                onConnectionUpdate(device, status, newState)
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                synchronized(bluetoothDevicesMap) { bluetoothDevicesMap.remove(device.address) }
+                onConnectionUpdate(device, status, newState)
             }
+        }
 
             override fun onMtuChanged(device: BluetoothDevice?, mtu: Int) {
                 super.onMtuChanged(device, mtu)
