@@ -2,25 +2,25 @@ name: ble_peripheral_example
 publish_to: none
 description: Demonstrates how to use the ble_peripheral plugin.
 version: 1.0.0+1
-environment: 
-  sdk: '>=3.2.0 <4.0.0'
+environment:
+  sdk: ">=3.2.0 <4.0.0"
 
-dependencies: 
-  flutter: 
+dependencies:
+  flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
   get: ^4.6.5
-  ble_peripheral: 
+  permission_handler:
+  ble_peripheral:
     path: ../
 
-dev_dependencies: 
+dev_dependencies:
   flutter_lints: ^2.0.0
-  flutter_test: 
+  flutter_test:
     sdk: flutter
 
-get_cli: 
+get_cli:
   sub_folder: false
 
-flutter: 
+flutter:
   uses-material-design: true
-

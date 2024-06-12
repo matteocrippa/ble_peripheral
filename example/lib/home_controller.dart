@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:ble_peripheral/ble_peripheral.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class HomeController extends GetxController {
   RxBool isAdvertising = false.obs;
@@ -101,6 +102,10 @@ class HomeController extends GetxController {
 
   void _initialize() async {
     try {
+      await Permission.bluetooth.request();
+      await Permission.bluetoothScan.request();
+      await Permission.bluetoothConnect.request();
+      await Permission.bluetoothAdvertise.request();
       await BlePeripheral.initialize();
     } catch (e) {
       Get.log("InitializationError: $e");
