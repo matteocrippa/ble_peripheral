@@ -133,11 +133,11 @@ class BlePeripheralPlugin : FlutterPlugin, BlePeripheralChannel, ActivityAware {
 
             val advertiseDataBuilder = AdvertiseData.Builder()
                 .setIncludeTxPowerLevel(false)
-                .setIncludeDeviceName(localName != null)
+                .setIncludeDeviceName(false)
 
             val scanResponseBuilder = AdvertiseData.Builder()
                 .setIncludeTxPowerLevel(false)
-                .setIncludeDeviceName(localName != null)
+                .setIncludeDeviceName(false)
 
             manufacturerData?.let {
                 if (addManufacturerDataInScanResponse) {
