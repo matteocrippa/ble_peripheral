@@ -110,61 +110,154 @@ class BlePeripheralPlugin : FlutterPlugin, BlePeripheralChannel, ActivityAware {
         } ?: emptyList()
     }
 
+    // override fun startAdvertising(
+    //     services: List<String>,
+    //     localName: String?,
+    //     timeout: Long?,
+    //     manufacturerData: ManufacturerData?,
+    //     addManufacturerDataInScanResponse: Boolean,
+    // ) {
+    //     if (!isBluetoothEnabled()) {
+    //         enableBluetooth()
+    //         throw Exception("Bluetooth is not enabled")
+    //     }
+
+    //     handler?.post { // set up advertising setting
+    //         localName?.let { bluetoothManager?.adapter?.name = it }
+    //         val advertiseSettings = AdvertiseSettings.Builder()
+    //             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+    //             .setConnectable(true)
+    //             .setTimeout(timeout?.toInt() ?: 0)
+    //             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+    //             .build()
+
+    //         val advertiseDataBuilder = AdvertiseData.Builder()
+    //             .setIncludeTxPowerLevel(false)
+    //             .setIncludeDeviceName(false)
+
+    //         val scanResponseBuilder = AdvertiseData.Builder()
+    //             .setIncludeTxPowerLevel(false)
+    //             .setIncludeDeviceName(false)
+
+    //         manufacturerData?.let {
+    //             if (addManufacturerDataInScanResponse) {
+    //                 scanResponseBuilder.addManufacturerData(
+    //                     it.manufacturerId.toInt(),
+    //                     it.data
+    //                 )
+    //             } else {
+    //                 advertiseDataBuilder.addManufacturerData(
+    //                     it.manufacturerId.toInt(),
+    //                     it.data
+    //                 )
+    //             }
+    //         }
+
+    //         services.forEach {
+    //             advertiseDataBuilder.addServiceUuid(ParcelUuid.fromString(it))
+    //         }
+
+    //         bluetoothLeAdvertiser?.startAdvertising(
+    //             advertiseSettings,
+    //             advertiseDataBuilder.build(),
+    //             scanResponseBuilder.build(),
+    //             advertiseCallback
+    //         )
+    //     }
+    // }
+
     override fun startAdvertising(
-        services: List<String>,
-        localName: String?,
-        timeout: Long?,
-        manufacturerData: ManufacturerData?,
-        addManufacturerDataInScanResponse: Boolean,
-    ) {
-        if (!isBluetoothEnabled()) {
-            enableBluetooth()
-            throw Exception("Bluetooth is not enabled")
+    services: List<String>,
+    localName: String?,
+    timeout: Long?,
+    manufacturerData: ManufacturerData?,
+    addManufacturerDataInScanResponse: Boolean,
+) {
+    if (!isBluetoothEnabled()) {
+        enableBluetooth()
+        throw Exception("Bluetooth is not enabled")
+    }
+
+    handler?.post { 
+        // Set up advertising settings
+        localName?.let { bluetoothManager?.adapter?.name = it }
+        val advertiseSettings = AdvertiseSettings.Builder()
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+            .setConnectable(true)
+            .setTimeout(timeout?.toInt() ?: 0)
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .build()
+
+        val advertiseDataBuilder = AdvertiseData.Builder()
+            .setIncludeTxPowerLevel(false)
+            .setIncludeDeviceName(localName != null)
+
+        val scanResponseBuilder = AdvertiseData.Builder()
+            .setIncludeTxPowerLevel(false)
+            .setIncludeDeviceName(localName != null)
+
+        var totalLength = 0
+        val maxAdvertiseDataSize = 31 // Maximum size for advertise data
+        val maxScanResponseSize = 31 // Maximum size for scan response data
+
+        // Include custom name if provided
+        if (localName != null) {
+            val nameLength = localName.toByteArray().size + 2 // 1 byte for length, 1 byte for AD type
+            if (totalLength + nameLength <= maxAdvertiseDataSize) {
+                advertiseDataBuilder.setIncludeDeviceName(true)
+                totalLength += nameLength
+            }
         }
 
-        handler?.post { // set up advertising setting
-            localName?.let { bluetoothManager?.adapter?.name = it }
-            val advertiseSettings = AdvertiseSettings.Builder()
-                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
-                .setConnectable(true)
-                .setTimeout(timeout?.toInt() ?: 0)
-                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-                .build()
-
-            val advertiseDataBuilder = AdvertiseData.Builder()
-                .setIncludeTxPowerLevel(false)
-                .setIncludeDeviceName(false)
-
-            val scanResponseBuilder = AdvertiseData.Builder()
-                .setIncludeTxPowerLevel(false)
-                .setIncludeDeviceName(false)
-
-            manufacturerData?.let {
-                if (addManufacturerDataInScanResponse) {
-                    scanResponseBuilder.addManufacturerData(
-                        it.manufacturerId.toInt(),
-                        it.data
-                    )
-                } else {
-                    advertiseDataBuilder.addManufacturerData(
-                        it.manufacturerId.toInt(),
-                        it.data
-                    )
+        // Add manufacturer data
+        manufacturerData?.let {
+            val dataLength = it.data.size + 2 // 2 bytes for manufacturer ID
+            if (addManufacturerDataInScanResponse) {
+                if (dataLength <= maxScanResponseSize) {
+                    scanResponseBuilder.addManufacturerData(it.manufacturerId.toInt(), it.data)
+                }
+            } else {
+                if (totalLength + dataLength <= maxAdvertiseDataSize) {
+                    advertiseDataBuilder.addManufacturerData(it.manufacturerId.toInt(), it.data)
+                    totalLength += dataLength
                 }
             }
-
-            services.forEach {
-                advertiseDataBuilder.addServiceUuid(ParcelUuid.fromString(it))
-            }
-
-            bluetoothLeAdvertiser?.startAdvertising(
-                advertiseSettings,
-                advertiseDataBuilder.build(),
-                scanResponseBuilder.build(),
-                advertiseCallback
-            )
         }
+
+        // Add service UUIDs
+        services.forEach {
+            val uuidLength = 16 + 2 // 16 bytes for UUID, 2 bytes for overhead
+            if (totalLength + uuidLength <= maxAdvertiseDataSize) {
+                advertiseDataBuilder.addServiceUuid(ParcelUuid.fromString(it))
+                totalLength += uuidLength
+            }
+        }
+
+        val advertiseData = advertiseDataBuilder.build()
+        val scanResponseData = scanResponseBuilder.build()
+
+        // Calculate the size of the advertising data
+        val advertiseDataSize = advertiseData.bytes?.size ?: 0
+        val scanResponseDataSize = scanResponseData.bytes?.size ?: 0
+
+        // Ensure the total size is within limits
+        if (advertiseDataSize > maxAdvertiseDataSize || scanResponseDataSize > maxScanResponseSize) {
+            handler?.post {
+                bleCallback?.onAdvertisingStatusUpdate(false, "Data too large") {}
+            }
+            return@post
+        }
+
+        // Start advertising
+        bluetoothLeAdvertiser?.startAdvertising(
+            advertiseSettings,
+            advertiseData,
+            scanResponseData,
+            advertiseCallback
+        )
     }
+}
+
 
     override fun stopAdvertising() {
         handler?.post {
