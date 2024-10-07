@@ -110,153 +110,93 @@ class BlePeripheralPlugin : FlutterPlugin, BlePeripheralChannel, ActivityAware {
         } ?: emptyList()
     }
 
-    // override fun startAdvertising(
-    //     services: List<String>,
-    //     localName: String?,
-    //     timeout: Long?,
-    //     manufacturerData: ManufacturerData?,
-    //     addManufacturerDataInScanResponse: Boolean,
-    // ) {
-    //     if (!isBluetoothEnabled()) {
-    //         enableBluetooth()
-    //         throw Exception("Bluetooth is not enabled")
-    //     }
-
-    //     handler?.post { // set up advertising setting
-    //         localName?.let { bluetoothManager?.adapter?.name = it }
-    //         val advertiseSettings = AdvertiseSettings.Builder()
-    //             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
-    //             .setConnectable(true)
-    //             .setTimeout(timeout?.toInt() ?: 0)
-    //             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-    //             .build()
-
-    //         val advertiseDataBuilder = AdvertiseData.Builder()
-    //             .setIncludeTxPowerLevel(false)
-    //             .setIncludeDeviceName(false)
-
-    //         val scanResponseBuilder = AdvertiseData.Builder()
-    //             .setIncludeTxPowerLevel(false)
-    //             .setIncludeDeviceName(false)
-
-    //         manufacturerData?.let {
-    //             if (addManufacturerDataInScanResponse) {
-    //                 scanResponseBuilder.addManufacturerData(
-    //                     it.manufacturerId.toInt(),
-    //                     it.data
-    //                 )
-    //             } else {
-    //                 advertiseDataBuilder.addManufacturerData(
-    //                     it.manufacturerId.toInt(),
-    //                     it.data
-    //                 )
-    //             }
-    //         }
-
-    //         services.forEach {
-    //             advertiseDataBuilder.addServiceUuid(ParcelUuid.fromString(it))
-    //         }
-
-    //         bluetoothLeAdvertiser?.startAdvertising(
-    //             advertiseSettings,
-    //             advertiseDataBuilder.build(),
-    //             scanResponseBuilder.build(),
-    //             advertiseCallback
-    //         )
-    //     }
-    // }
-
     override fun startAdvertising(
-    services: List<String>,
-    localName: String?,
-    timeout: Long?,
-    manufacturerData: ManufacturerData?,
-    addManufacturerDataInScanResponse: Boolean,
-) {
-    if (!isBluetoothEnabled()) {
-        enableBluetooth()
-        throw Exception("Bluetooth is not enabled")
-    }
-
-    handler?.post { 
-        // Set up advertising settings
-        localName?.let { bluetoothManager?.adapter?.name = it }
-        val advertiseSettings = AdvertiseSettings.Builder()
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
-            .setConnectable(true)
-            .setTimeout(timeout?.toInt() ?: 0)
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-            .build()
-
-        val advertiseDataBuilder = AdvertiseData.Builder()
-            .setIncludeTxPowerLevel(false)
-            .setIncludeDeviceName(localName != null)
-
-        val scanResponseBuilder = AdvertiseData.Builder()
-            .setIncludeTxPowerLevel(false)
-            .setIncludeDeviceName(localName != null)
-
-        var totalLength = 0
-        val maxAdvertiseDataSize = 31 // Maximum size for advertise data
-        val maxScanResponseSize = 31 // Maximum size for scan response data
-
-        // Include custom name if provided
-        if (localName != null) {
-            val nameLength = localName.toByteArray().size + 2 // 1 byte for length, 1 byte for AD type
-            if (totalLength + nameLength <= maxAdvertiseDataSize) {
-                advertiseDataBuilder.setIncludeDeviceName(true)
-                totalLength += nameLength
-            }
+        services: List<String>,
+        localName: String?,
+        timeout: Long?,
+        manufacturerData: ManufacturerData?,
+        addManufacturerDataInScanResponse: Boolean,
+    ) {
+        if (!isBluetoothEnabled()) {
+            enableBluetooth()
+            throw Exception("Bluetooth is not enabled")
         }
 
-        // Add manufacturer data
-        manufacturerData?.let {
-            val dataLength = it.data.size + 2 // 2 bytes for manufacturer ID
-            if (addManufacturerDataInScanResponse) {
-                if (dataLength <= maxScanResponseSize) {
-                    scanResponseBuilder.addManufacturerData(it.manufacturerId.toInt(), it.data)
-                }
-            } else {
-                if (totalLength + dataLength <= maxAdvertiseDataSize) {
-                    advertiseDataBuilder.addManufacturerData(it.manufacturerId.toInt(), it.data)
-                    totalLength += dataLength
+        handler?.post {
+            // Set up advertising settings
+            localName?.let { bluetoothManager?.adapter?.name = it }
+            val advertiseSettings = AdvertiseSettings.Builder()
+                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+                .setConnectable(true)
+                .setTimeout(timeout?.toInt() ?: 0)
+                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+                .build()
+
+            val advertiseDataBuilder = AdvertiseData.Builder()
+                .setIncludeTxPowerLevel(false)
+                .setIncludeDeviceName(localName != null)
+
+            val scanResponseBuilder = AdvertiseData.Builder()
+                .setIncludeTxPowerLevel(false)
+                .setIncludeDeviceName(localName != null)
+
+            var totalLength = 0
+            val maxAdvertiseDataSize = 31 // Maximum size for advertise data
+            val maxScanResponseSize = 31 // Maximum size for scan response data
+
+            // Include custom name if provided
+            if (localName != null) {
+                val nameLength = localName.toByteArray().size + 2 // 1 byte for length, 1 byte for AD type
+                if (nameLength <= maxAdvertiseDataSize) {
+                    advertiseDataBuilder.setIncludeDeviceName(true)
+                    totalLength += nameLength
                 }
             }
-        }
 
-        // Add service UUIDs
-        services.forEach {
-            val uuidLength = 16 + 2 // 16 bytes for UUID, 2 bytes for overhead
-            if (totalLength + uuidLength <= maxAdvertiseDataSize) {
-                advertiseDataBuilder.addServiceUuid(ParcelUuid.fromString(it))
-                totalLength += uuidLength
+            // Add manufacturer data
+            manufacturerData?.let {
+                val dataLength = it.data.size + 2 // 2 bytes for manufacturer ID
+                if (addManufacturerDataInScanResponse) {
+                    if (dataLength <= maxScanResponseSize) {
+                        scanResponseBuilder.addManufacturerData(it.manufacturerId.toInt(), it.data)
+                    }
+                } else {
+                    if (totalLength + dataLength <= maxAdvertiseDataSize) {
+                        advertiseDataBuilder.addManufacturerData(it.manufacturerId.toInt(), it.data)
+                        totalLength += dataLength
+                    }
+                }
             }
-        }
 
-        val advertiseData = advertiseDataBuilder.build()
-        val scanResponseData = scanResponseBuilder.build()
-
-        // Calculate the size of the advertising data
-        val advertiseDataSize = advertiseData.bytes?.size ?: 0
-        val scanResponseDataSize = scanResponseData.bytes?.size ?: 0
-
-        // Ensure the total size is within limits
-        if (advertiseDataSize > maxAdvertiseDataSize || scanResponseDataSize > maxScanResponseSize) {
-            handler?.post {
-                bleCallback?.onAdvertisingStatusUpdate(false, "Data too large") {}
+            // Add service UUIDs
+            services.forEach {
+                val uuidLength = 16 + 2 // 16 bytes for UUID, 2 bytes for overhead
+                if (totalLength + uuidLength <= maxAdvertiseDataSize) {
+                    advertiseDataBuilder.addServiceUuid(ParcelUuid.fromString(it))
+                    totalLength += uuidLength
+                }
             }
-            return@post
-        }
 
-        // Start advertising
-        bluetoothLeAdvertiser?.startAdvertising(
-            advertiseSettings,
-            advertiseData,
-            scanResponseData,
-            advertiseCallback
-        )
+            val advertiseData = advertiseDataBuilder.build()
+            val scanResponseData = scanResponseBuilder.build()
+            
+            // Ensure the total size is within limits
+            if (totalLength > maxAdvertiseDataSize) {
+                handler?.post {
+                    bleCallback?.onAdvertisingStatusUpdate(false, "Data too large") {}
+                }
+                return@post
+            }
+
+            // Start advertising
+            bluetoothLeAdvertiser?.startAdvertising(
+                advertiseSettings,
+                advertiseData,
+                scanResponseData,
+                advertiseCallback
+            )
+        }
     }
-}
 
 
     override fun stopAdvertising() {
@@ -374,53 +314,18 @@ class BlePeripheralPlugin : FlutterPlugin, BlePeripheralChannel, ActivityAware {
 
     private val gattServerCallback: BluetoothGattServerCallback =
         object : BluetoothGattServerCallback() {
-            // override fun onConnectionStateChange(
-            //     device: BluetoothDevice,
-            //     status: Int,
-            //     newState: Int,
-            // ) {
-            //     super.onConnectionStateChange(device, status, newState)
-            //     when (newState) {
-            //         BluetoothProfile.STATE_CONNECTED -> {
-            //             if (device.bondState == BluetoothDevice.BOND_NONE) {
-            //                 // Wait for bonding
-            //                 listOfDevicesWaitingForBond.add(device.address)
-            //                 device.createBond()
-            //             } else if (device.bondState == BluetoothDevice.BOND_BONDED) {
-            //                 handler?.post {
-            //                     gattServer?.connect(device, true)
-            //                 }
-            //                 synchronized(bluetoothDevicesMap) {
-            //                     bluetoothDevicesMap.put(
-            //                         device.address,
-            //                         device
-            //                     )
-            //                 }
-            //             }
-            //             onConnectionUpdate(device, status, newState)
-            //         }
-
-            //         BluetoothProfile.STATE_DISCONNECTED -> {
-            //             val deviceAddress = device.address
-            //             synchronized(bluetoothDevicesMap) { bluetoothDevicesMap.remove(deviceAddress) }
-            //             onConnectionUpdate(device, status, newState)
-            //         }
-
-            //         else -> {}
-            //     }
-            // }
 
             override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
-            super.onConnectionStateChange(device, status, newState)
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                handler?.post { gattServer?.connect(device, true) }
-                synchronized(bluetoothDevicesMap) { bluetoothDevicesMap[device.address] = device }
-                onConnectionUpdate(device, status, newState)
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                synchronized(bluetoothDevicesMap) { bluetoothDevicesMap.remove(device.address) }
-                onConnectionUpdate(device, status, newState)
+                super.onConnectionStateChange(device, status, newState)
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    handler?.post { gattServer?.connect(device, true) }
+                    synchronized(bluetoothDevicesMap) { bluetoothDevicesMap[device.address] = device }
+                    onConnectionUpdate(device, status, newState)
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    synchronized(bluetoothDevicesMap) { bluetoothDevicesMap.remove(device.address) }
+                    onConnectionUpdate(device, status, newState)
+                }
             }
-        }
 
             override fun onMtuChanged(device: BluetoothDevice?, mtu: Int) {
                 super.onMtuChanged(device, mtu)
@@ -439,16 +344,6 @@ class BlePeripheralPlugin : FlutterPlugin, BlePeripheralChannel, ActivityAware {
             ) {
                 super.onCharacteristicReadRequest(device, requestId, offset, characteristic)
                 if (gattServer == null) return
-//                val value = characteristic.value
-//                if (value != null) {
-//                    gattServer?.sendResponse(
-//                        device,
-//                        requestId,
-//                        BluetoothGatt.GATT_SUCCESS,
-//                        offset,
-//                        value
-//                    )
-//                }
 
                 handler?.post {
                     bleCallback?.onReadRequest(
@@ -740,13 +635,4 @@ class BlePeripheralPlugin : FlutterPlugin, BlePeripheralChannel, ActivityAware {
         }
         return false
     }
-
-//    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-//        if (requestCode == requestCodeBluetoothPermission) {
-//            Log.d(TAG, "onActivityResultForBlePermission: ${resultCode == Activity.RESULT_OK}")
-//        } else if (requestCode == requestCodeBluetoothEnablePermission) {
-//            Log.d(TAG, "onActivityResultForBleEnable: ${resultCode == Activity.RESULT_OK}")
-//        }
-//        return false
-//    }
 }
